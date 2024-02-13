@@ -1,0 +1,122 @@
+####################### step 1 Preposssess raw reads ####################################
+
+fastp -i ${SM}_1.fq.gz  -o ${SM}_R1.fastq.gz -I ${SM}_2.fq.gz -O ${SM}_R2.fastq.gz  -w 8 -h ${SM}.fastp.html -j ${SM}.fastp.json
+
+######################## step 2 de novo transcriptome assembly ###########################
+
+TransLiG -s fq -p pair -l ${SM}_R1.fastq.gz   -r ${SM}_R2.fastq.gz  -m RF -k 31 -g 200   -o ${SM}
+
+####################### step 3 Map the filtered reads to reference transcriptome ##########
+
+## <TransLiG.fa> is the de novo assembed transcriptome of each species
+
+cut -d ' ' -f1 TransLiG.fa > TransLiG_fit.fa
+
+conda activate rsem_env
+
+rsem-prepare-reference  --bowtie2 -p 16  ./<TransLiG_fit.fa>   ./RSEM_ref/${line}_ref
+	
+rsem-calculate-expression  --bowtie2  -p 16  --paired-end  ${line}_R1.fastq.gz   ${line}_R2.fastq.gz  ./RSEM_ref/${line}_ref  ./${line}
+
+####################### step 4 Filter out low expressed transcripts #########################
+
+### get a index for Graph_[x]_ for transcripts with TPM>1 using RSEM output
+
+for sample in *.genes.results;do
+
+	SM=$(echo $sample|sed 's/.genes.results//g')
+	
+	awk '$6>1' $sample | awk '{print $1"\t"$0}' | awk '{gsub("Graph_","",$1)}1' |sed 's/ /\t/g'|awk '{gsub("_.*","",$1)}1'|sed 's/ /\t/g' |awk '{print $0"\t"$1"-"$5}'> ${SM}.reform.key
+
+done
+
+### get the transcript with the longest effective length
+
+print(files<-list.files(pattern="*.reform.key"))
+
+for (j in 1:length(files)) {
+
+	da<-read.table(files[j],header=T)
+
+	agg<-aggregate(da$effective_length,by = list(da$gene),FUN =max)
+
+	write.table(agg, file=paste(files[j],".max.txt",sep=""),quote=FALSE, row.names=FALSE, sep="\t")
+
+}
+
+# <TransLiG.fa> is the de novo assembed transcriptome of each species
+# cut -d ' ' -f1 TransLiG.fa > TransLiG_fit.fa
+# Select the transcript in <TransLiG_fit.fa> (de novo trasncriptome) files
+
+for sample in *.fit.fa;do
+
+	SM=$(echo $sample|sed 's/.fit.fa//g')
+	
+	awk '/^>/ {printf("%s%s\t",(N>0?"\n":""),$0);N++;next;} {printf("%s",$0);} END {printf("\n");}'< $sample > ${SM}.fit.linear.fa
+	
+	sed 1d ${SM}.reform.key.max.txt | awk '{print $1"-"$2}' > ${SM}.key  
+	
+	awk 'FNR==NR{a[$1];next}($9 in a)' ${SM}.key   ${SM}.reform.key |awk '{print ">"$2}' > ${SM}.key.edit
+
+	awk 'FNR==NR{a[$1];next}($1 in a)'  ${SM}.key.edit   ${SM}.fit.linear.fa | tr "\t" "\n" > ${SM}.sel.fit.fa
+
+done
+
+########################## step 5 Cluster and reduce assembled transcripts ###########################
+
+cd-hit-est  -i ${SM}.sel.fit.fa  -o ${SM}.sel.rd.fit.fa   -c 0.95 -S 0.95 -aS 0.95   -n 8 -T 24  -M 1540  
+
+########################## step 6 Remove contaminants from assembled transcripts ######################
+
+#  *.sel.rd.fit.fa are the transcripts ready for filtering contaminants.
+
+for sample in *.sel.rd.fit.fa;do
+
+	SM=$(echo $sample|sed 's/.sel.rd.fit.fa//g')
+	
+	### Blastx the query sequences to nr, and assign the best known taxon id.
+
+	diamond  blastx -d nr_db_diamond_taxon  -q  $sample --outfmt 102  -o  ${SM}.besttaxon
+
+	### If the query sequences were assigned to green plant taxon id, keep it. Otherwise extract the potential non-plant sequences to 2nd round blastx.
+
+	awk 'FNR==NR{a[$1];next}($2 in a)'  green_plant_taxid.txt   ${SM}.besttaxon |awk '{print $1}'|sort|uniq |awk '{print ">"$0}'> ${SM}.keep_1.list
+
+	awk 'NR==FNR {exclude[$1];next} !($2 in exclude)' green_plant_taxid.txt ${SM}.besttaxon|awk '{print $1}'|sort|uniq |awk '{print ">"$0}'> ${SM}.realign.list
+
+	awk '/^>/ {printf("%s%s\t",(N>0?"\n":""),$0);N++;next;} {printf("%s",$0);} END {printf("\n");}'< $sample >  ${SM}.linear.fasta 
+
+	awk 'FNR==NR{a[$1];next}($1 in a)' ${SM}.realign.list ${SM}.linear.fasta  |tr "\t" "\n" >  ${SM}.realign.fa
+
+	### Blastx the potential non-plant sequences to green plant nr, (default  e-value<1e-3)
+
+	diamond  blastx -d  nr_db_diamond_taxon --taxonlist 33090  -q ${SM}.realign.fa  --outfmt 6  -o   ${SM}.realign.blastx
+
+	### Collect those sequences with alignment to green plant nr 
+
+	awk '{print $1}' ${SM}.realign.blastx |sort|uniq |awk '{print ">"$0}'> ${SM}.keep_2.list
+
+	cat ${SM}.keep_1.list ${SM}.keep_2.list|sort|uniq > ${SM}.keep_total.list 
+
+	### The final sequences which align to the green plant nr.
+
+	awk 'FNR==NR{a[$1];next}($1 in a)' ${SM}.keep_total.list  ${SM}.linear.fasta  |tr "\t" "\n" > ${SM}.fil.fa
+
+done
+
+############################# step 7 BUSCO assessments ####################################################
+
+conda activate busco_env
+
+   busco -i $sample  -l embryophyta_odb10  --cpu 24  -o ${SM} -m transcriptome 
+
+# Copy all the short_summary.specific.*.txt to the folder sum_BUSCO
+
+python3 ~/busco/scripts/generate_plot.py -wd sum_BUSCO
+
+############################# step 8 Predict the longest peptide seqeunce from the transcriptome #############
+
+~TransDecoder-TransDecoder-v5.5.0/TransDecoder.LongOrfs -t $sample 
+~/TransDecoder-TransDecoder-v5.5.0/TransDecoder.Predict -t $sample 
+~/TransDecoder-TransDecoder-v5.5.0/util/get_longest_ORF_per_transcript.pl  $sample.transdecoder.pep > $sample.longest_orf.pep.fasta
+
