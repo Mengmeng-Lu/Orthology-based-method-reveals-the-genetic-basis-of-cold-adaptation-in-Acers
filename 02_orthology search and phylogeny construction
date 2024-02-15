@@ -295,7 +295,7 @@ iqtree2 -s FcC_supermatrix.phy -p par.nex -m MFP+MERGE -T AUTO  -alrt 1000  -B 1
 
 
 
-###########  Method 10  BI_concat_AA      #############
+###########  Method 10  BI_concatenation_AA      #############
 
 ### To make a concatenated AA super-matrix in NEXUS-MrBAYES format
 
@@ -307,7 +307,7 @@ perl ~/FASconCAT-G/FASconCAT-G_v1.05.1.pl  <enter> n <enter>  n <enter>  a <ente
 
 
 
-###########  Method 11  BI_concat_CDS      #############
+###########  Method 11  BI_concatenation_CDS      #############
 
 ### To make a concatenated CDS super-matrix in NEXUS-MrBAYES
 
@@ -319,7 +319,7 @@ perl ~/FASconCAT-G/FASconCAT-G_v1.05.1.pl  <enter> n <enter>  n <enter>  a <ente
 
 
 
-###########  Method 12  BI_concat_CDS12      #############
+###########  Method 12  BI_concatenation_CDS12      #############
 
 ### To make a concatenated CDS12 super-matrix in NEXUS-MrBAYES
 
@@ -331,7 +331,7 @@ perl ~/FASconCAT-G/FASconCAT-G_v1.05.1.pl <enter>   d<enter>    n<enter>  n<ente
 
 
 
-###########   Method 13  BI_parti_AA     #############
+###########   Method 13  BI_partition_AA     #############
 
 ### Edit the partition file from BI_concat_AA to fit for MrBayes
 
@@ -341,7 +341,7 @@ perl ~/FASconCAT-G/FASconCAT-G_v1.05.1.pl <enter>   d<enter>    n<enter>  n<ente
 
 
 
-###########   Method 14  BI_parti_CDS     #############
+###########   Method 14  BI_partition_CDS     #############
 
 ### Edit the partition file from BI_concat_CDS to fit for MrBayes
 
@@ -351,7 +351,7 @@ perl ~/FASconCAT-G/FASconCAT-G_v1.05.1.pl <enter>   d<enter>    n<enter>  n<ente
 
 
 
-###########   Method 15  BI_parti_CDS12      #############
+###########   Method 15  BI_partition_CDS12      #############
 
 
 ### Edit the partition file from BI_concat_CDS12 to fit for MrBayes
@@ -359,7 +359,3 @@ perl ~/FASconCAT-G/FASconCAT-G_v1.05.1.pl <enter>   d<enter>    n<enter>  n<ente
 ### Run MrBayes 
 
 ~/MrBayes/bin/mb  FcC_supermatrix_part.nex
-
-
-
-
