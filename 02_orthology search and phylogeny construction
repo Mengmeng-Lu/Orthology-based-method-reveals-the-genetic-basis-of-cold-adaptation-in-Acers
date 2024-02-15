@@ -1,0 +1,365 @@
+
+##### To infer Orthogroups (gene families) amongst the assembled transcriptomes  #####
+
+# Put all the peptide sequence files in the folder ./longest_pep_input/
+
+conda activate py38
+
+~/OrthoFinder/orthofinder  -f ./longest_pep_input/ -S diamond  -t 16  -a 16
+
+
+
+
+###### search for strict one-to-one orthologs  ######## 
+
+
+# step one: only retain OGs with all studied species having at least one sequence present, and also, filter out OGs with the mean and median numbers of sequences across all species larger than five and two, respectively. 
+
+# Orthogroups.GeneCount.tsv is the orthofinder output
+
+
+module load R
+
+R
+
+df <-read.table("Orthogroups.GeneCount.tsv", header=T, row.name=1)
+
+df$count_not_0 <- rowSums(df[,1:30]!=0)
+
+df$mean<- rowMeans(df[,1:30],na.rm=TRUE)
+
+df$median = apply(df[,1:30], 1, median, na.rm=TRUE)
+
+df_sel<-subset(df, count_not_0==30 & mean<=5 & median <=2)
+
+list<-rownames(df_sel)
+
+write.table(list, file="single_candi.txt", quote=FALSE, row.names=FALSE, sep="\t")
+
+
+
+
+# step two: Filter the OGs
+
+# Align peptide sequences for each OG
+
+for sample in *.fa;do
+
+	SM=$(echo $sample|sed 's/.fa//g')
+	
+	~/mafft-7.490-with-extensions/core/mafft --thread 8 $sample > /scratch365/mlu/Acers/raw_seq/ortho/find_single_ortho/aln/mafft/${SM}.aln
+	
+done 
+
+# Select the conserved bloacks
+
+for sample in *.aln;do
+
+	SM=$(echo $sample|sed 's/.aln//g')
+
+	~/Gblocks_0.91b/Gblocks   $sample   -t=p    -b5=h
+
+done
+
+
+# Filter out OGS with less than 100 amino acids and record the OG list
+
+grep "Original" -A 1 -B 1  <gblock output file> |awk '!/--/'  |awk 'NR%3{printf "%s ",$0;next;}1'  |sed 's/Original alignment: /\t/g'|sed 's/ positions Gblocks alignment:  /\t/g'|awk '$3>=100'|awk '{print $1}' > OG_pass.list
+
+
+
+
+
+#step three: Build ML tree and infer orthology using PhyloPyPruner
+
+
+cat OG_pass.list | while read LINE;do 
+	
+	SM=$(echo $LINE|sed 's/.aln//g')
+	
+	fasttree  ${SM}.aln-gb  > ${SM}.tre
+	
+done
+
+
+### Copy all alignment and tree files into one folder <prune_input>
+
+module load  python/3.10.5  
+
+phylopypruner  --dir prune_input  --output prune_out --threads 8  --min-gene-occupancy 0.75 --min-support 0.7 --trim-lb 5 
+
+
+
+
+# step four: extract peptide sequences and corresponding CDS using the PhyloPyPruner output
+
+# *_pruned.fa are the prune output
+
+
+for sample in *_pruned.fa;do
+
+	SM=$(echo $sample|sed 's/_pruned.fa//g')
+	
+	grep ">" $sample >${SM}.ID
+	
+	awk 'FNR==NR{a[$1];next}($1 in a)' ${SM}.ID   all_30.longest_cds.linear.fa | tr "\t" "\n" > ${SM}.nuc
+	
+	awk 'FNR==NR{a[$1];next}($1 in a)' ${SM}.ID   all_30.longest_pep.linear.fa | tr "\t" "\n" > ${SM}.pep
+	
+done 
+
+
+
+for sample in *.pep;do
+
+	SM=$(echo $sample|sed 's/.pep//g')
+	
+	~/mafft-7.490-with-extensions/core/mafft --thread 4 $sample > ${SM}.aln
+	
+done 
+
+
+### onvert protein alignment and corresponding DNA sequences into a codon alignment
+
+for sample in *.aln;do
+
+	SM=$(echo $sample|sed 's/.aln//g')
+	
+	perl ~/pal2nal.v14/pal2nal.pl ${SM}.aln  ${SM}.nuc -output fasta  > ${SM}.codon.fas
+	
+done 
+
+
+
+for sample in *.codon.fas;do
+
+	SM=$(echo $sample|sed 's/.codon.fas//g')
+
+	~/Gblocks_0.91b/Gblocks   $sample   -t=c   -b5=h
+
+done
+
+
+
+for sample in *.codon.fas-gb;do
+
+	SM=$(echo $sample|sed 's/.codon.fas-gb//g')
+
+	sed 's/|.*//g' ${SM}.codon.fas-gb  |sed 's/ //g' > ${SM}.cds.fas
+	
+	sed 's/|.*//g' ${SM}.aln-gb |sed 's/ //g' > ${SM}.aa.fas
+	
+done
+
+
+
+
+
+################################################################
+################################################################
+#############           Infer phylogeny            #############
+################################################################
+################################################################
+
+
+### To infer phylogeny, three formats of input were prepared, and five methods were applied to each format with Dipteronia sinensis as outgroup. 
+### The three formats of input include peptide sequence, CDS, and CDS without the third position of each codon (CDS12). 
+### The five methods include: Coalescent method, ML concatenation method, ML partition method, Bayesian inference (BI) concatenation method, and BI partition method. 
+
+
+
+#############   Method 1 Coalescent_AA      #############
+
+iqtree2 -s $LINE.aa.fas  -T 4  -B 1000 --prefix $LINE
+
+nw_ed $LINE.treefile 'i & b<=10' o > $LINE.aa.bs10.tre
+
+cat *.tre > all_AA_gene.tre
+
+~/astral-hybrid  -t 4 -R -i  all_AA_gene.tre  -o coales_AA_spec.tre  -u 1 --root Dipteronia.sinensis  2> astral_AA.log
+
+
+
+#############  Method 2 Coalescent_CDS       #############
+
+iqtree2 -s $LINE.cds.fas  -T 4 -st CODON -alrt 1000 -B 1000 --prefix $LINE
+
+nw_ed $LINE.treefile 'i & b<=10' o > $LINE.cds.bs10.tre
+
+cat *.tre > all_CDS_gene.tre
+
+~/astral-hybrid  -t 4 -R -i  all_CDS_gene.tre  -o coales_CDS_spec.tre  -u 1 --root Dipteronia.sinensis  2> astral_CDS.log
+
+
+
+#############  Method 3 Coalescent_CDS12      #############
+
+perl ~/FASconCAT-G/FASconCAT-G_v1.05.1.pl  $LINE.cds.fas  -d -s
+
+iqtree2 -s  $LINE.cds12.fas -T 4  -alrt 1000 -B 1000 --prefix $LINE
+
+nw_ed $LINE.treefile 'i & b<=10' o > $LINE.cds12.bs10.tre
+
+cat *.tre > all_CDS12_gene.tre
+
+~/astral-hybrid  -t 4 -R -i  all_CDS12_gene.tre  -o coales_CDS12_spec.tre  -u 1 --root Dipteronia.sinensis  2> astral_CDS12.log
+
+
+
+
+
+###########   Method 4  ML_concatenation_AA      #############
+
+### Concatenate all peptide sequences into a phylip format super matrix
+
+perl ~/FASconCAT-G/FASconCAT-G_v1.05.1.pl  <enter> p <enter> s <enter>
+
+iqtree2 -s FcC_supermatrix.phy -T AUTO  -alrt 1000  -B 1000 --prefix ML_concat_AA -ntmax 48
+
+
+
+###########   Method 5  ML_concatenation_CDS      #############
+
+### Concatenate all CDS into a phylip format super matrix
+
+perl ~/FASconCAT-G/FASconCAT-G_v1.05.1.pl  <enter> p <enter> s <enter>
+
+iqtree2 -s FcC_supermatrix.phy  -T AUTO  -alrt 1000  -B 1000 --prefix ML_concat_CDS -ntmax 16
+
+
+
+###########   Method 6  ML_concatenation_CDS12      #############
+
+### Concatenate all CDS(1+2) into a Philip format super matrix
+
+perl ~/FASconCAT-G/FASconCAT-G_v1.05.1.pl  <enter> d <enter> p <enter> s <enter>
+
+iqtree2 -s FcC_supermatrix.phy  -T AUTO  -alrt 1000  -B 1000 --prefix ML_concat_CDS12 -ntmax 16
+
+
+
+
+
+###########   Method 7  ML_partition_AA      #############
+
+### Generate partition using PartitionFinder2
+
+perl ~/FASconCAT-G/FASconCAT-G_v1.05.1.pl  <enter> p  <enter> l  <enter> a  <enter> s <enter>
+
+
+### Run PartitionFinderProtein; <input> folder has partition_finder.cfg & FcC_supermatrix.phy 
+
+python ~/partitionfinder-2.1.1/PartitionFinderProtein.py  ./input  --raxml -p 16 -q --rcluster-max 1000 --rcluster-percent 10
+
+
+### par.nex includes the best partition scheme to make a IQ-TREE partition input
+
+iqtree2 -s FcC_supermatrix.phy -p par.nex -m MFP+MERGE -T AUTO  -alrt 1000  -B 1000 --prefix ML_parti_AA -ntmax 16
+
+
+
+###########   Method 8  ML_partition_CDS      #############
+
+### Generate partition using PartitionFinder2
+
+perl ~/FASconCAT-G/FASconCAT-G_v1.05.1.pl  <enter> p  <enter> l  <enter> a  <enter> s <enter>
+
+
+### Run PartitionFinderProtein; <input> folder has partition_finder.cfg & FcC_supermatrix.phy 
+
+python ~/partitionfinder-2.1.1/PartitionFinder.py  ./input  --raxml -p 16 -q --rcluster-max 1000 --rcluster-percent 10
+
+
+### par.nex includes the best partition scheme to make a IQ-TREE partition input
+
+iqtree2 -s FcC_supermatrix.phy -p par.nex -m MFP+MERGE -T AUTO  -alrt 1000  -B 1000 --prefix ML_parti_CDS -ntmax 16
+
+
+
+###########  Method 9  ML_partition_CDS12      #############
+
+### Generate partition using PartitionFinder2
+
+perl ~/FASconCAT-G/FASconCAT-G_v1.05.1.pl  <enter> p  <enter> l  <enter> a  <enter> d  <enter> s <enter>
+
+
+### Run PartitionFinderProtein; <input> folder has partition_finder.cfg & FcC_supermatrix.phy 
+
+python ~/partitionfinder-2.1.1/PartitionFinder.py  ./input  --raxml -p 8 -q --rcluster-max 1000 --rcluster-percent 10
+
+
+### par.nex includes the best partition scheme to make a IQ-TREE partition input
+
+iqtree2 -s FcC_supermatrix.phy -p par.nex -m MFP+MERGE -T AUTO  -alrt 1000  -B 1000 --prefix ML_parti_CDS12 -ntmax 16
+
+
+
+
+###########  Method 10  BI_concat_AA      #############
+
+### To make a concatenated AA super-matrix in NEXUS-MrBAYES format
+
+perl ~/FASconCAT-G/FASconCAT-G_v1.05.1.pl  <enter> n <enter>  n <enter>  a <enter>  s <enter>
+
+### Run MrBayes 
+
+~/MrBayes/bin/mb  FcC_supermatrix.nex
+
+
+
+###########  Method 11  BI_concat_CDS      #############
+
+### To make a concatenated CDS super-matrix in NEXUS-MrBAYES
+
+perl ~/FASconCAT-G/FASconCAT-G_v1.05.1.pl  <enter> n <enter>  n <enter>  a <enter>  s <enter>
+
+### Run MrBayes 
+
+~/MrBayes/bin/mb  FcC_supermatrix.nex
+
+
+
+###########  Method 12  BI_concat_CDS12      #############
+
+### To make a concatenated CDS12 super-matrix in NEXUS-MrBAYES
+
+perl ~/FASconCAT-G/FASconCAT-G_v1.05.1.pl <enter>   d<enter>    n<enter>  n<enter>  a<enter>  s<enter>
+
+### Run MrBayes 
+
+~/MrBayes/bin/mb  FcC_supermatrix.nex
+
+
+
+###########   Method 13  BI_parti_AA     #############
+
+### Edit the partition file from BI_concat_AA to fit for MrBayes
+
+### Run MrBayes 
+
+~/MrBayes/bin/mb  FcC_supermatrix_part.nex
+
+
+
+###########   Method 14  BI_parti_CDS     #############
+
+### Edit the partition file from BI_concat_CDS to fit for MrBayes
+
+### Run MrBayes 
+
+~/MrBayes/bin/mb  FcC_supermatrix_part.nex
+
+
+
+###########   Method 15  BI_parti_CDS12      #############
+
+
+### Edit the partition file from BI_concat_CDS12 to fit for MrBayes
+
+### Run MrBayes 
+
+~/MrBayes/bin/mb  FcC_supermatrix_part.nex
+
+
+
+
