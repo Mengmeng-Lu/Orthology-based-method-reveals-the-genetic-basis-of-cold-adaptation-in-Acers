@@ -1,0 +1,470 @@
+###########################################################################
+###### Download occurence records from GBIF using R package dismo ######## 
+###########################################################################
+
+library(ENMTools)
+library(spThin)
+
+genus_title<-c("Dipteronia", "Acer","Acer","Acer","Acer","Acer","Acer","Acer","Acer","Acer","Acer","Acer","Acer","Acer","Acer","Acer","Acer","Acer","Acer","Acer","Acer","Acer","Acer","Acer","Acer","Acer","Acer","Acer","Acer","Acer")
+
+species_title<-c("sinensis","amplum","barbinerve", "buergerianum","caesium", "caudatum", "chingii", "cordatum","flabellatum", "franchetii","ginnala", "henryi", "heptalobum", "kuomeii","laevigatum", "mandshuricum","mono","oblongum","paxii","pectinatum","robustum","rubrum","saccharum","sinense","spicatum","stachyophyllum","tegmentosum","triflorum","truncatum","wilsonii")
+
+rec <- list()
+df<-list()
+df_sel<-list()
+
+sum.df<-NULL
+
+for (i in 1:length(genus_title)) {
+
+	rec[[i]] <- gbif(genus_title[i], species_title[i], geo = T, removeZeros= T, download=TRUE)
+	
+	skip_to_next<-FALSE	
+	
+	tryCatch(test<-nrow(rec[[i]]$occurrenceStatus), error=function(e){skip_to_next<<-TRUE})
+  	
+	if(skip_to_next){next}	
+
+	df[[i]] <- data.frame(rep(paste(genus_title[i],species_title[i], sep="_"), nrow(rec[[i]])), rec[[i]]$occurrenceStatus, rec[[i]]$lat, rec[[i]]$lon)
+	
+	colnames(df[[i]])<-c("ID","status","lat","lon")
+	
+	df_sel[[i]] <- subset(df[[i]], status=="PRESENT" & lat !="NA" & lon!="NA")
+	
+	sum.df<-rbind(sum.df, df_sel[[i]])
+
+ }
+
+write.table(sum.df, file="all_presence.txt", quote=FALSE, row.names=FALSE, sep="\t")
+
+
+
+
+#####################################################################
+###### Plot distribution map for the 26 studied Acer species ######## 
+#####################################################################
+
+
+### all_presence.txt includes the downlaoded GBIF occurence records for each species.
+### Plot the maps in three graphs.
+### For A. rubrum & A. saccharum, the main natural ranges were defined in blue dashed lines as the region between -100° W and -50° W, 10° N and 65°N. 
+### For the other species, the main natural ranges were defined in blue dashed lines as the region between 70° W and 150° W, 10° N and 65°N. 
+
+
+
+library(maptools)
+library(rgdal)
+library(scales)
+library(geodata)
+library(raster)
+library(ggrepel)
+library(stringr)
+
+
+da<-read.table("all_presence.txt",header=T)
+head(da)
+dim(da)
+
+title <- unique(da$ID)
+title
+
+title_rm<-c( "Acer_amplum","Acer_barbinerve","Acer_buergerianum",
+            "Acer_caesium","Acer_caudatum","Acer_chingii","Acer_cordatum","Acer_franchetii",
+            "Acer_henryi","Acer_heptalobum","Acer_kuomeii","Acer_laevigatum","Acer_mandshuricum",
+            "Acer_mono","Acer_oblongum","Acer_paxii","Acer_pectinatum","Acer_robustum",
+            "Acer_rubrum","Acer_saccharum","Acer_sinense","Acer_stachyophyllum",
+            "Acer_tegmentosum","Acer_triflorum","Acer_truncatum","Acer_wilsonii")
+
+length(title_rm)
+
+sub_da<-list()
+sub2_da<-list()
+
+
+data(wrld_simpl)
+
+pdf("occur_p1.pdf")
+par(mfrow=c(3,3))
+par(mar = c(0, 0, 1, 0))
+
+for (i in 1:9) {
+  
+  sub_da[[i]] <- subset(da, ID==title_rm[i])
+  
+  plot(wrld_simpl,axes=FALSE, col="gray95",main=str_replace_all(title_rm[i],"_", " ") )
+  
+  points(sub_da[[i]]$lon, sub_da[[i]]$lat, col="red", pch=18, cex=0.5)
+  
+  abline(h = 65, col="blue", lwd=2, lty=2)
+  abline(h = 10, col="blue", lwd=2, lty=2)
+  
+  abline(v = 70, col="blue", lwd=2, lty=2)
+  abline(v = 150, col="blue", lwd=2, lty=2)
+  
+  
+  sub2_da[[i]]<-subset(sub_da[[i]], lat>10 & lat<65 & lon>70 & lon<150)
+} 
+dev.off()
+
+
+
+pdf("occur_p2.pdf")
+par(mfrow=c(3,3))
+par(mar = c(0, 0, 1, 0))
+
+for (i in 10:18) {
+  
+  sub_da[[i]] <- subset(da, ID==title_rm[i])
+  
+  plot(wrld_simpl,axes=FALSE, col="gray95",main=str_replace_all(title_rm[i],"_", " ") )
+  
+  points(sub_da[[i]]$lon, sub_da[[i]]$lat, col="red", pch=18, cex=0.5)
+  
+  abline(h = 65, col="blue", lwd=2, lty=2)
+  abline(h = 10, col="blue", lwd=2, lty=2)
+  
+  abline(v = 70, col="blue", lwd=2, lty=2)
+  abline(v = 150, col="blue", lwd=2, lty=2)
+  
+  
+  sub2_da[[i]]<-subset(sub_da[[i]], lat>10 & lat<65 & lon>70 & lon<150)
+} 
+dev.off()
+
+
+
+pdf("occur_p3.pdf")
+par(mfrow=c(3,3))
+par(mar = c(0, 0, 1, 0))
+
+for (i in 19:20) {
+  
+  sub_da[[i]] <- subset(da, ID==title_rm[i])
+  
+  plot(wrld_simpl,axes=FALSE, col="gray95",main=str_replace_all(title_rm[i],"_", " ") )
+  
+  points(sub_da[[i]]$lon, sub_da[[i]]$lat, col="red", pch=18, cex=0.5)
+  
+  abline(h = 65, col="blue", lwd=2, lty=2)
+  abline(h = 10, col="blue", lwd=2, lty=2)
+  
+  abline(v = -100, col="blue", lwd=2, lty=2)
+  abline(v = -50, col="blue", lwd=2, lty=2)
+  
+  sub2_da[[i]]<-subset(sub_da[[i]], lat>10 & lat<65 & lon> -100 & lon< -50)
+} 
+
+for (i in 21:26) {
+  
+  sub_da[[i]] <- subset(da, ID==title_rm[i])
+  
+  plot(wrld_simpl,axes=FALSE, col="gray95",main=str_replace_all(title_rm[i],"_", " ") )
+  
+  points(sub_da[[i]]$lon, sub_da[[i]]$lat, col="red", pch=18, cex=0.5)
+  
+  abline(h = 65, col="blue", lwd=2, lty=2)
+  abline(h = 10, col="blue", lwd=2, lty=2)
+  
+  abline(v = 70, col="blue", lwd=2, lty=2)
+  abline(v = 150, col="blue", lwd=2, lty=2)
+  
+  
+  sub2_da[[i]]<-subset(sub_da[[i]], lat>10 & lat<65 & lon>70 & lon<150)
+  
+} 
+dev.off()
+
+
+
+
+###################################################################################################
+#####   Download WorldClim v2 data and calculate the median within the defined natural range  ####
+###################################################################################################
+
+
+
+### WorldClim v2.1 is a set of global climate layers that contain monthly climate data for 1970-2000.
+### Besides bios, these are WorldClim monthly average climate data
+### tmin--minimum temperature; tmax--maximum temperature; tavg--average temperature;
+### prec--total precipitation; srad--incident solar radiation; wind--wind speed(2m above the ground);
+### vaps--vapor pressure
+### https://rdrr.io/cran/geodata/man/worldclim.html
+
+
+library(geodata)
+
+bios <- worldclim_global("bio",2.5,path="./") 
+rads<- worldclim_global("srad",2.5,path="./") 
+vaps<- worldclim_global("vapr",2.5,path="./") 
+winds<- worldclim_global("wind",2.5,path="./") 
+
+ele <- elevation_global(2.5,path = "./")
+
+preps<- worldclim_global("prec",2.5,path="./") 
+tavgs<- worldclim_global("tavg",2.5,path="./")
+tmins<- worldclim_global("tmin",2.5,path="./") 
+tmaxs<- worldclim_global("tmax",2.5,path="./")  
+
+### Combine climate variables and elevation 
+env<-c(bios, rads, vaps, winds, ele,preps, tavgs, tmins, tmaxs)
+env
+names(env)
+
+
+
+### There are 104 items in env.
+
+###  Narrow the presence points to native range, then generate median points for the presence points.
+
+
+da<-read.table("all_presence.txt",header=T)
+head(da)
+dim(da)
+
+### Drop Dipteronia, spicatum and ginnala and "flabellatum"
+
+genus_title<-c("Acer","Acer","Acer","Acer","Acer","Acer","Acer",
+               "Acer","Acer","Acer","Acer","Acer","Acer","Acer","Acer","Acer",
+               "Acer","Acer","Acer","Acer","Acer","Acer","Acer","Acer","Acer",
+               "Acer")
+
+species_title<-c("amplum","barbinerve", "buergerianum","caesium", 
+                 "caudatum", "chingii", "cordatum", "franchetii",
+                  "henryi", "heptalobum", "kuomeii","laevigatum", 
+                 "mandshuricum","mono", "oblongum", "paxii","pectinatum","robustum",
+                 "rubrum","saccharum","sinense","stachyophyllum",
+                 "tegmentosum","triflorum","truncatum","wilsonii")
+
+length(genus_title)
+length(species_title)
+
+
+sub_da<-list()
+
+for (i in 1:length(genus_title)) {
+  
+  sub_da[[i]]<-subset(da, ID==paste(genus_title[i],species_title[i],sep="_"))
+}
+
+
+### Select the main distribution and find centroid by median lon & lat
+
+key1<-c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,21,22,23,24,25,26)
+
+key2<-c(19,20)
+
+sub2_da<-list()
+
+
+for  (j in 1:length(key1)) {
+  
+  idx=key1[j]
+  
+  sub2_da[[idx]]<-subset(sub_da[[idx]], lat>10 & lat<65 & lon>70 & lon<150)
+}
+
+
+for  (k in 1:length(key2)) {
+  
+  idx=key2[k]
+  
+  sub2_da[[idx]]<-subset(sub_da[[idx]], lat>10 & lat<65 & lon> -100 & lon< -50)
+}
+
+
+
+### Extract climate variables and get the median value.
+
+
+coords<-list()
+points<-list()
+sub_env<-list()
+tbl<-list()
+med<-list()
+
+
+for (i in 1:length(genus_title)) {
+  
+  coords[[i]]<-sub2_da[[i]][,c("lon","lat")]
+  
+  points[[i]] <- vect(as.matrix(coords[[i]]), crs="+proj=longlat +datum=WGS84")
+  
+  sub_env[[i]]<-extract(env, points[[i]], na.rm=TRUE)
+  
+  tbl[[i]]<- cbind(sub2_da[[i]], sub_env[[i]])
+  
+  colnames(tbl[[i]]) <- gsub("wc2.1_2.5m_","",colnames(tbl[[i]]))
+  
+  med[[i]] <- data.frame(apply(tbl[[i]][,c(6:109)], 2, median,na.rm=T))
+  
+  names(med[[i]])<-paste(genus_title[i],species_title[i],sep="_")
+}
+
+df<-cbind(med[[1]],med[[2]],med[[3]],med[[4]],med[[5]],med[[6]],med[[7]],med[[8]],
+      med[[9]],med[[10]],med[[11]],med[[12]],med[[13]],med[[14]],med[[15]],
+      med[[16]],med[[17]],med[[18]],med[[19]],med[[20]],med[[21]],med[[22]],
+      med[[23]],med[[24]],med[[25]],med[[26]])
+
+dim(df)
+
+### This table includes the median climate variable for occurence of GBIF for each species, 
+
+write.table(t(df), file="median_occr_clim.txt", quote=FALSE, row.names=TRUE, sep="\t")
+
+
+###############################################################################################################
+###  Test phylogenetic signals in bioclimatic values using two methods, Blomberg’s K and Pagel’s lambda    ####
+###############################################################################################################
+
+library(phytools)
+library(stringr)
+
+## Phylogenetic signal with K and lambda 
+#http://blog.phytools.org/2012/03/phylogenetic-signal-with-k-and.html
+
+### Reroot the tree in FigTree
+### Manually edit the tree (find-->replace) to remove single quotation mark
+
+### Only ML and BI trees will be used, because coalescent trees don't have terminal branch lengths,
+
+
+print(files<-list.files(pattern="ML"))
+
+# print(files<-list.files(pattern="BI_"))
+
+
+tre<-list()
+
+
+for (j in 1:length(files)) {
+  
+  tre[[j]]<- ape::read.tree(files[j])
+  #plot(tre[[j]])
+
+  ### Drop three species from the ML tree
+  drop.list<-c("Dipteronia_sinensis", "A.spicatum","A.ginnala","A.flabellatu")
+  
+  ### Drop three species from the BI tree
+  ## drop.list<-c("Dipteronia.sinensis", "spicatum","ginnala","flabellatum")
+  
+  prune.tre<-drop.tip(tre[[j]],drop.list)
+  #plot(prune.tre)
+
+
+### tip.label only keeps the first ten letters of each species
+key <- prune.tre$tip.label
+key
+
+### Import bios
+da<-read.table("median_occr_clim.txt",header=T)
+dim(da)
+head(da)
+
+
+### Make a lab column to match the tip.label(key)
+lab.interim<-gsub("Acer_", "", rownames(da))
+lab<-substr(lab.interim, 1, 10)
+lab
+
+da$lab<-paste("A.",lab,sep="")
+da
+
+key
+da$lab
+
+### Filter the table to only keep the rows with "key" 
+da_trim <- da[da$lab %in% key,]
+dim(da_trim)
+da_trim
+head(da_trim)
+
+unique(da_trim$lab)
+
+
+### Make a climate variable list
+my_bio<-colnames(da_trim)[1:104]
+my_bio
+length(my_bio)
+
+
+### Run phylogenetic signal detection test for each climate variable 
+
+sub_da<-list()
+res.val.P<-matrix(NA, 104, 5)
+
+
+for (i in 1:length(my_bio)) {
+  
+  sub_da[[i]] <- da_trim[,my_bio[i]]
+  
+  median <-setNames(sub_da[[i]],da_trim$lab)
+  
+  K.test<-phylosig(prune.tre,median,test=TRUE)
+  res.val.P[i,2]<-K.test$K
+  res.val.P[i,3]<-K.test$P
+  
+  lambda.test<-phylosig(prune.tre,median,method="lambda",test=TRUE)
+  res.val.P[i,4]<-lambda.test$lambda
+  res.val.P[i,5]<-lambda.test$P
+  
+  res.val.P[i,1]<-my_bio[i]
+}
+
+
+colnames(res.val.P)<-c("var","K_val","K_p","lambda_val","lambda_p")
+
+res.val.P
+
+write.table(res.val.P, file=paste("./phylosig_output/",files[j],"_out.txt",sep=""),
+            quote=FALSE, row.names=FALSE, sep="\t")
+
+}
+
+
+###############################################################################################################
+###  Plot phylosig test outputs  ####
+###############################################################################################################
+
+library(pheatmap)
+
+term<-read.table("Term.txt",head=T, sep="\t")
+head(term)
+
+
+## files *.tre_out.*** includes phylosig test outputs.
+
+
+print(files<-list.files(pattern="tre_out"))
+
+
+for (i in 1:length(files)) {
+
+  da<-read.table(files[i],head=T, sep="\t")
+
+
+  bio_da<-da[1:19,]
+  rownames(bio_da)<-term$x[1:19]
+  
+  my_col <- colorRampPalette(c("#FAAE7B", "white", "#432371"))(15)  
+
+  pdf(paste("./plot_heat/",files[i],"_plot_bios.pdf",sep=""))
+
+  pheatmap(bio_da[,2:5],cluster_rows=F, cluster_cols=F,display_numbers = TRUE,
+        fontsize_number=14, fontsize=13, gaps_col = c(2), color=my_col)
+
+  dev.off()
+  
+  
+  tmin_da<-da[81:92,]
+  rownames(tmin_da)<-term$x[81:92]
+  
+  my_col <- colorRampPalette(c("#B2A496", "white", "#5E3719"))(15)  
+  
+  pdf(paste("./plot_heat/",files[i],"_plot_tmin.pdf",sep=""))
+  
+  pheatmap(tmin_da[,2:5],cluster_rows=F, cluster_cols=F,display_numbers = TRUE,
+           fontsize_number=14, fontsize=13, gaps_col = c(2), color=my_col)
+  
+  dev.off()
+  
+}
