@@ -1,0 +1,249 @@
+############################################################################### 
+################## Pairwise Distances from a phylogentic tree #################
+
+cophenetic.phylo computes the pairwise distances between the pairs of tips from
+a phylogenetic tree using its branch lengths.
+
+https://rdrr.io/cran/ape/man/cophenetic.phylo.html
+###################################################### ######################### 
+
+library(ape)
+#library(phytools)
+
+
+print(files<-list.files(pattern="ML_"))
+
+# print(files<-list.files(pattern="BI_"))
+
+
+for (i in 1:length(files)) {
+
+  tre<-read.tree(files[i])
+  #plot(tre)
+
+  dis.mx<-cophenetic(tre)
+  #dim(dis.mx)
+
+  test<-lower.tri(dis.mx,diag=F)
+
+  dis.mx[!test]<-NA
+
+  pair_dis <- na.omit(as.data.frame(as.table(dis.mx)))
+  #dim(pair_dis)
+  #head(pair_dis)
+
+  drop.list<-c("Dipteronia_sinensis", "A.spicatum","A.ginnala","A.flabellatu")
+  #drop.list<-c("Dipteronia.sinensis", "spicatum","ginnala","flabellatum") for BI trees
+
+  pair_dis.interim <- pair_dis[!(pair_dis$Var1 %in% drop.list),]
+  #dim(pair_dis.interim)
+
+  #head(pair_dis.interim)
+
+  pair_dis.trim.txt <- pair_dis.interim[!(pair_dis.interim$Var2 %in% drop.list),]
+  #dim(pair_dis.trim.txt)
+
+  #head(pair_dis.trim.txt)
+
+  colnames(pair_dis.trim.txt) <- c("spec1","spec2","dis")
+  #head(pair_dis.trim.txt)
+  #tail(pair_dis.trim.txt)
+
+  write.table(pair_dis.trim.txt, file=paste(files[i],"_pair_dis.txt",sep=""),
+              quote=FALSE, row.names=FALSE, sep="\t")
+
+}
+
+
+##############################################################################
+### Calculate euclidean for temperature bio, precipitation bio, and others
+##############################################################################
+
+### Import bios
+da<-read.table("0_median_occr_clim.txt",header=T)
+dim(da)
+head(da)
+
+
+rownames(da)
+colnames(da)
+
+
+index<-seq(1:26)
+index
+
+key<-t(combn(index,2))
+dim(key)
+head(key)
+tail(key)
+key
+
+tbl<-matrix(NA,nrow(key),14)
+
+for (k in 1:nrow(key)){
+  
+  idx_1<-key[k,1]
+  idx_2<-key[k,2]
+  
+  tbl[k,1]<-key[k,1]
+  tbl[k,2]<-key[k,2]
+  tbl[k,3]<-rownames(da)[idx_1]
+  tbl[k,4]<-rownames(da)[idx_2]
+  
+  tbl[k,5]<-sqrt((da[idx_1,1]-da[idx_2,1])^2+ (da[idx_1,2]-da[idx_2,2])^2+
+                  (da[idx_1,3]-da[idx_2,3])^2+(da[idx_1,4]-da[idx_2,4])^2+
+                    (da[idx_1,5]-da[idx_2,5])^2+(da[idx_1,6]-da[idx_2,6])^2+
+                    (da[idx_1,7]-da[idx_2,7])^2+(da[idx_1,8]-da[idx_2,8])^2+
+                    (da[idx_1,9]-da[idx_2,9])^2+(da[idx_1,10]-da[idx_2,10])^2+
+                    (da[idx_1,11]-da[idx_2,11])^2)
+  
+  tbl[k,6]<-sqrt((da[idx_1,12]-da[idx_2,12])^2+ (da[idx_1,13]-da[idx_2,13])^2+
+                   (da[idx_1,14]-da[idx_2,14])^2+(da[idx_1,15]-da[idx_2,15])^2+
+                   (da[idx_1,16]-da[idx_2,16])^2+(da[idx_1,17]-da[idx_2,17])^2+
+                   (da[idx_1,18]-da[idx_2,18])^2+(da[idx_1,19]-da[idx_2,19])^2)
+  
+  tbl[k,7]<-sqrt((da[idx_1,1]-da[idx_2,1])^2+ (da[idx_1,2]-da[idx_2,2])^2+
+                   (da[idx_1,3]-da[idx_2,3])^2+(da[idx_1,4]-da[idx_2,4])^2+
+                   (da[idx_1,5]-da[idx_2,5])^2+(da[idx_1,6]-da[idx_2,6])^2+
+                   (da[idx_1,7]-da[idx_2,7])^2+(da[idx_1,8]-da[idx_2,8])^2+
+                   (da[idx_1,9]-da[idx_2,9])^2+(da[idx_1,10]-da[idx_2,10])^2+
+                   (da[idx_1,11]-da[idx_2,11])^2+(da[idx_1,12]-da[idx_2,12])^2+ 
+                   (da[idx_1,13]-da[idx_2,13])^2+(da[idx_1,14]-da[idx_2,14])^2+
+                   (da[idx_1,15]-da[idx_2,15])^2+(da[idx_1,16]-da[idx_2,16])^2+
+                   (da[idx_1,17]-da[idx_2,17])^2+(da[idx_1,18]-da[idx_2,18])^2+
+                   (da[idx_1,19]-da[idx_2,19])^2)
+  
+  tbl[k,8]<-sqrt((da[idx_1,20]-da[idx_2,20])^2+ (da[idx_1,21]-da[idx_2,21])^2+
+                 (da[idx_1,22]-da[idx_2,22])^2+(da[idx_1,23]-da[idx_2,23])^2+
+                 (da[idx_1,24]-da[idx_2,24])^2+(da[idx_1,25]-da[idx_2,25])^2+
+                 (da[idx_1,26]-da[idx_2,26])^2+(da[idx_1,27]-da[idx_2,27])^2+
+                 (da[idx_1,28]-da[idx_2,28])^2+(da[idx_1,29]-da[idx_2,29])^2+
+                 (da[idx_1,30]-da[idx_2,30])^2+(da[idx_1,31]-da[idx_2,31])^2)
+  
+  tbl[k,9]<-sqrt((da[idx_1,32]-da[idx_2,32])^2+ (da[idx_1,33]-da[idx_2,33])^2+
+                   (da[idx_1,34]-da[idx_2,34])^2+(da[idx_1,35]-da[idx_2,35])^2+
+                   (da[idx_1,36]-da[idx_2,36])^2+(da[idx_1,37]-da[idx_2,37])^2+
+                   (da[idx_1,38]-da[idx_2,38])^2+(da[idx_1,39]-da[idx_2,39])^2+
+                   (da[idx_1,40]-da[idx_2,40])^2+(da[idx_1,41]-da[idx_2,41])^2+
+                   (da[idx_1,42]-da[idx_2,42])^2+(da[idx_1,43]-da[idx_2,43])^2)
+  
+  tbl[k,10]<-sqrt((da[idx_1,44]-da[idx_2,44])^2+ (da[idx_1,45]-da[idx_2,45])^2+
+                   (da[idx_1,46]-da[idx_2,46])^2+(da[idx_1,47]-da[idx_2,47])^2+
+                   (da[idx_1,48]-da[idx_2,48])^2+(da[idx_1,49]-da[idx_2,49])^2+
+                   (da[idx_1,50]-da[idx_2,50])^2+(da[idx_1,51]-da[idx_2,51])^2+
+                   (da[idx_1,52]-da[idx_2,52])^2+(da[idx_1,53]-da[idx_2,53])^2+
+                   (da[idx_1,54]-da[idx_2,54])^2+(da[idx_1,55]-da[idx_2,55])^2)
+  
+  tbl[k,11]<-sqrt((da[idx_1,57]-da[idx_2,57])^2+ (da[idx_1,58]-da[idx_2,58])^2+
+                    (da[idx_1,59]-da[idx_2,59])^2+(da[idx_1,60]-da[idx_2,60])^2+
+                    (da[idx_1,61]-da[idx_2,61])^2+(da[idx_1,62]-da[idx_2,62])^2+
+                    (da[idx_1,63]-da[idx_2,63])^2+(da[idx_1,64]-da[idx_2,64])^2+
+                    (da[idx_1,65]-da[idx_2,65])^2+(da[idx_1,66]-da[idx_2,66])^2+
+                    (da[idx_1,67]-da[idx_2,67])^2+(da[idx_1,68]-da[idx_2,68])^2)
+  
+  tbl[k,12]<-sqrt((da[idx_1,69]-da[idx_2,69])^2+ (da[idx_1,70]-da[idx_2,70])^2+
+                    (da[idx_1,71]-da[idx_2,71])^2+(da[idx_1,72]-da[idx_2,72])^2+
+                    (da[idx_1,73]-da[idx_2,73])^2+(da[idx_1,74]-da[idx_2,74])^2+
+                    (da[idx_1,75]-da[idx_2,75])^2+(da[idx_1,76]-da[idx_2,76])^2+
+                    (da[idx_1,77]-da[idx_2,77])^2+(da[idx_1,78]-da[idx_2,78])^2+
+                    (da[idx_1,79]-da[idx_2,79])^2+(da[idx_1,80]-da[idx_2,80])^2)
+  
+  tbl[k,13]<-sqrt((da[idx_1,81]-da[idx_2,81])^2+ (da[idx_1,82]-da[idx_2,82])^2+
+                    (da[idx_1,83]-da[idx_2,83])^2+(da[idx_1,84]-da[idx_2,84])^2+
+                    (da[idx_1,85]-da[idx_2,85])^2+(da[idx_1,86]-da[idx_2,86])^2+
+                    (da[idx_1,87]-da[idx_2,87])^2+(da[idx_1,88]-da[idx_2,88])^2+
+                    (da[idx_1,89]-da[idx_2,89])^2+(da[idx_1,90]-da[idx_2,90])^2+
+                    (da[idx_1,91]-da[idx_2,91])^2+(da[idx_1,92]-da[idx_2,92])^2)
+  
+  tbl[k,14]<-sqrt((da[idx_1,93]-da[idx_2,93])^2+ (da[idx_1,94]-da[idx_2,94])^2+
+                    (da[idx_1,95]-da[idx_2,95])^2+(da[idx_1,96]-da[idx_2,96])^2+
+                    (da[idx_1,97]-da[idx_2,97])^2+(da[idx_1,98]-da[idx_2,98])^2+
+                    (da[idx_1,99]-da[idx_2,99])^2+(da[idx_1,100]-da[idx_2,100])^2+
+                    (da[idx_1,101]-da[idx_2,101])^2+(da[idx_1,102]-da[idx_2,102])^2+
+                    (da[idx_1,103]-da[idx_2,103])^2+(da[idx_1,104]-da[idx_2,104])^2)
+  
+}
+
+
+
+
+colnames(tbl)<-c("index1","index2","spec1","spec2","temp_euc","prep_euc","all_bio_euc",
+                 "srad","vapr","wind","prep","tavg","tmin","tmax")
+dim(tbl)
+head(tbl)
+tail(tbl)
+
+tbl<-gsub("Acer_","",tbl)
+tbl
+
+write.table(tbl, file="0_pw_clim_euc.txt", quote=FALSE, row.names=FALSE, sep="\t")
+
+
+#####################################################################################
+#### Mantel test between pairwise phylogenetic distance and euclidean bios
+######################################################################################
+
+library(ecodist)
+
+df<-read.table("0_pw_clim_euc.txt",header=T)
+dim(df)
+head(df)
+tail(df)
+
+df$spec1<-substr(df$spec1, 1, 10)
+df$spec1<-paste("A.",df$spec1,sep="")
+
+df$spec2<-substr(df$spec2, 1, 10)
+df$spec2<-paste("A.",df$spec2,sep="")
+
+unique(df$spec1)
+unique(df$spec2)
+
+
+print(files<-list.files(pattern="ML_"))
+# print(files<-list.files(pattern="BI_"))
+
+
+
+for (i in 1:length(files)) {
+  
+dis<-read.table(files[i],head=T)
+#unique(dis$spec1)
+
+df_comb.p1<- merge(df, dis, by=c("spec1","spec2"))
+
+colnames(dis)<-c("spec2","spec1","dis")
+
+df_comb.p2<- merge(df, dis, by=c("spec1","spec2"))
+
+
+mantel.input.interim<- rbind(df_comb.p1,df_comb.p2)
+mantel.input <- mantel.input.interim[order(mantel.input.interim$spec1,mantel.input.interim$spec2),]
+
+
+#### Test for normality of the data ####
+
+#library("ggpubr")
+#ggdensity(mantel.input$dis) 
+#ggqqplot(mantel.input$dis)
+       
+#ggqqplot(mantel.input$temp_euc)
+#ggqqplot(mantel.input$tmin)
+
+
+mantel.temp_bio.cor<-mantel(mantel.input$dis~mantel.input$temp_euc)
+capture.output(mantel.temp_bio.cor,file=paste(files[i],"_temp_bio_dis.mantel.cor.output.txt",sep=""))
+
+MRM.temp_bio.cor<-MRM(mantel.input$dis~mantel.input$temp_euc, nperm=1000)
+capture.output(MRM.temp_bio.cor,file=paste(files[i],"_temp_bio_dis.MRM.cor.output.txt",sep=""))
+
+
+mantel.tmin.cor<-mantel(mantel.input$dis~mantel.input$tmin)
+capture.output(mantel.tmin.cor,file=paste(files[i],"_tmin_dis.mantel.cor.output.txt",sep=""))
+
+MRM.tmin.cor<-MRM(mantel.input$dis~mantel.input$tmin, nperm=1000)
+capture.output(MRM.tmin.cor,file=paste(files[i],"_tmin_dis.MRM.cor.output.txt",sep=""))
+
+}
+
+
