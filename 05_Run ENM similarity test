@@ -51,7 +51,7 @@ dev.off()
 
 
 
-da<-read.table("0_all_presence.txt",header=T)
+da<-read.table("all_presence.txt",header=T)
 head(da)
 dim(da)
 
