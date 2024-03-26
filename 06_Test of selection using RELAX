@@ -1,0 +1,187 @@
+#################################################
+### Prepare the input for test of selection  ####
+#################################################
+
+
+### Retain the OGs with at least ten species using the same protocol as "02_orthology search and phylogeny construction"
+
+
+### Run PhyloPyPruner outside of the input folder that includes OGs to select the one-to-one orthologues (Parameters are different from pervious step here)
+
+module load  python/3.10.5  
+
+phylopypruner  --dir prune_in  --output prune_out --threads 8   --prune MI --min-taxa 10  --min-gene-occupancy 0.1 --min-support 0.5 
+
+
+
+
+### The above output was also used to infer gene trees 
+
+### Final list of OGs for selection test <all_OG.list>
+
+
+
+### Extract CDS for the <all_OG.list>
+
+cat all_OG.list | while read LINE;do 
+
+	grep ">"  $LINE.fa > $LINE.allID.txt
+	
+	awk 'FNR==NR{a[$1];next}($1 in a)'  $LINE.allID.txt  all_30.longest_cds.linear.fa  | tr "\t" "\n" > $LINE.cds.fa
+	
+done
+
+
+### Align the CDS
+
+for sample in *.cds.fa;do
+
+	SM=$(echo $sample|sed 's/.cds.fa//g')
+	
+	~/mafft-7.490-with-extensions/core/mafft --thread 16  $sample  > ${SM}.aln
+		
+done
+
+
+### Select the conserved CDS alignment
+
+for sample in *.aln;do
+
+	SM=$(echo $sample|sed 's/.aln//g')
+
+	~/Gblocks_0.91b/Gblocks   $sample   -t=c    -b5=n
+
+done
+
+
+### Select OGs with at least 90 positions with the gblock output file
+
+grep "Original" -A 1 -B 1 <gblock.o####>  |awk '!/--/'  |awk 'NR%3{printf "%s ",$0;next;}1'  |sed 's/Original alignment: /\t/g'|sed 's/ positions Gblocks alignment:  /\t/g'|awk '$3>=90'|awk '{print $1}'|sed 's/.aln//g' > OG_pass.list
+
+
+##############################################
+###  Run Hyphy RELAX  and sort the output ####
+###############################################
+
+
+### <$LINE.edit.fa> is the CDS aligment representing each OG; <tree.nw> corresponds to the gene tree of each OG; label the tree.nw with {test} for foreground species
+
+conda activate hyphy_env
+
+hyphy relax --alignment $LINE.edit.fa  --tree tree.nw --test test  --models All > relax.output
+	
+
+
+### Get median k and the log10 transformed k
+
+# all_k.txt includes k by general descriptive model
+# columns are species; every row stands for an OG; the first column is the OG list
+
+da<-read.table("all_k.txt",header=T,row.names=1)
+
+### Median of all columns in dataframe
+
+res<-apply(da, 2, median, na.rm=T)
+
+df<-data.frame(res)
+
+df$trans<-log10(df$res)
+
+write.table(df, file="k_median_log10.txt", quote=FALSE, row.names=TRUE, sep="\t")
+
+
+
+################################
+###          PGLS       ###
+################################
+
+
+### Import bios
+
+da<-read.table("median_occr_clim.txt",header=T)
+
+da$ID<-gsub("Acer_","",rownames(da))
+
+
+### Import median k values
+
+k_val<-read.table("k_median_log10.txt")
+
+k_val$ID<-rownames(k_val)
+
+
+### Merge median bios and k values by species
+
+df_comb<- merge(da, k_val, by=c("ID"))
+
+
+### Run PGLS 
+
+library(ape)
+library(geiger)
+library(nlme)
+library(phytools)
+
+### Edit the original tree--->remove ", and remove "A."
+tre <- ape::read.tree("4_ML_concat_AA_reroot.tre")
+plot(tre)
+
+
+### Drop four species from the tree
+drop.list<-c("Dipteronia", "spicatum","ginnala","flabellatu")
+prune.tre<-drop.tip(tre,drop.list)
+plot(prune.tre)
+
+
+### tip.label only keeps the first ten letters of each species
+key <- prune.tre$tip.label
+key
+
+
+### Make a "lab" column to match the tip.label(key)
+lab<-substr(df_comb$ID, 1, 10)
+lab
+
+df_comb$lab<-lab
+
+
+
+### PGLS between bio1~19 and K values
+tbl<-matrix(NA,19,2)
+
+  mod1 <- gls(trans ~ bio_1, correlation = corBrownian(1, prune.tre, form=~lab), data=df_comb,method = "ML")
+  sum1<-summary(mod1)
+  tbl[1,1]<-"bio_1"
+  tbl[1,2]<-format(round(sum1$tTable[2,4],2),nsmall=2)
+  
+  mod2 <- gls(trans ~ bio_2, correlation = corBrownian(1, prune.tre, form=~lab), data=df_comb,method = "ML")
+  sum2<-summary(mod2)
+  tbl[2,1]<-"bio_2"
+  tbl[2,2]<-format(round(sum2$tTable[2,4],2),nsmall=2)
+  
+...... 
+
+
+### PGLS plot
+
+pdf("PGLS_plot_bio1-bio11.pdf")
+  
+  par(mfrow=c(4, 3), oma=c(2, 2, 0, 0) + 0.3, mar=c(2, 2, 3, 2) + 0.3,
+      cex.main=0.9,cex.lab = 2, cex.lab=2)
+  
+    plot(df_comb$trans ~ df_comb$bio_1, pch=16, xlab="", ylab="")
+    abline(a = coef(mod1)[1], b = coef(mod1)[2])
+    title("bio1_Annual mean temperature", adj = 0.5, line = 1.5)
+    title(expression(paste("PGLS ", italic("p"),"-value = 0.02",sep="")), adj = 0.5, line = 0.5)
+    
+    plot(df_comb$trans ~ df_comb$bio_2, pch=16, xlab="", ylab="")
+    abline(a = coef(mod2)[1], b = coef(mod2)[2])
+    title("bio2_Mean diurnal range",adj = 0.5, line = 1.5)
+    title(expression(paste("PGLS ", italic("p"),"-value = 0.02",sep="")), adj = 0.5, line = 0.5)
+   
+  ...... 
+   
+  dev.off()
+  
+  
+  
