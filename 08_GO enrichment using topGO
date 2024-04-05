@@ -1,3 +1,5 @@
+### topGO is an R package. Its reference manual can be found here https://bioconductor.org/packages/release/bioc/html/topGO.html
+
 library(topGO)
 
 
