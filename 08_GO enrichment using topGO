@@ -1,0 +1,125 @@
+library(topGO)
+
+
+geneID2GO<-readMappings("all_go.txt", sep="\t", IDsep=" ")
+	
+geneNames<- names(geneID2GO)
+
+
+
+spe<-read.table("enriched_go.txt", header=F)
+	
+geneList <- factor(as.integer(geneNames %in% as.character(spe$V1)))
+
+names(geneList) <- geneNames
+	
+	
+	
+GOdata_MF <- new("topGOdata", ontology = "MF", allGenes = geneList,annot = annFUN.gene2GO, gene2GO = geneID2GO )
+
+resultFisher <- runTest(GOdata_MF, algorithm = "elim", statistic = "fisher")
+
+
+tab <- GenTable(GOdata_MF, raw.p.value = resultFisher, topNodes = length(resultFisher@score),numChar = 500)
+
+tab_edit <- subset(tab, tab$raw.p.value<=0.05)
+
+write.table(tab_edit, "MF_GO_enrich_0.05.tbl", quote=FALSE, row.names=FALSE, sep="\t")
+
+
+
+### An insightful way of looking at the results is to investigate how the significant GOs are distributed over the GO graph.
+
+printGraph(GOdata_MF, resultFisher, firstSigNodes = 10, fn.prefix = "MF_tGO", useInfo = "def", pdfSW = TRUE)
+
+
+
+############################################################
+############################################################
+############################################################
+R
+
+library(topGO)
+
+
+
+geneID2GO<-readMappings("all_go.txt", sep="\t", IDsep=" ")
+	
+geneNames<- names(geneID2GO)
+
+
+spe<-read.table("enriched_go.txt", header=F)
+	
+geneList <- factor(as.integer(geneNames %in% as.character(spe$V1)))
+
+names(geneList) <- geneNames
+
+
+
+
+GOdata_BP <- new("topGOdata", ontology = "BP", allGenes = geneList,annot = annFUN.gene2GO, gene2GO = geneID2GO )
+
+resultFisher <- runTest(GOdata_BP, algorithm = "elim", statistic = "fisher")
+
+
+
+
+tab <- GenTable(GOdata_BP, raw.p.value = resultFisher, topNodes = length(resultFisher@score),numChar = 500)
+
+tab_edit <- subset(tab, tab$raw.p.value<=0.05)
+
+write.table(tab_edit, "BP_GO_enrich_0.05.tbl", quote=FALSE, row.names=FALSE, sep="\t")
+
+
+
+
+### An insightful way of looking at the results is to investigate how the significant GOs are distributed over the GO graph.
+
+printGraph(GOdata_BP, resultFisher, firstSigNodes = 10, fn.prefix = "BP_tGO", useInfo = "def", pdfSW = TRUE)
+
+
+
+
+############################################################
+############################################################
+############################################################
+
+R
+
+library(topGO)
+
+
+
+geneID2GO<-readMappings("all_go.txt", sep="\t", IDsep=" ")
+	
+geneNames<- names(geneID2GO)
+
+
+spe<-read.table("enriched_go.txt", header=F)
+	
+geneList <- factor(as.integer(geneNames %in% as.character(spe$V1)))
+
+names(geneList) <- geneNames
+
+
+
+
+GOdata_CC <- new("topGOdata", ontology = "CC", allGenes = geneList,annot = annFUN.gene2GO, gene2GO = geneID2GO )
+
+resultFisher <- runTest(GOdata_CC, algorithm = "elim", statistic = "fisher")
+
+
+
+
+tab <- GenTable(GOdata_CC, raw.p.value = resultFisher, topNodes = length(resultFisher@score),numChar = 500)
+
+tab_edit <- subset(tab, tab$raw.p.value<=0.05)
+
+write.table(tab_edit, "CC_GO_enrich_0.05.tbl", quote=FALSE, row.names=FALSE, sep="\t")
+
+
+
+### An insightful way of looking at the results is to investigate how the significant GOs are distributed over the GO graph.
+
+printGraph(GOdata_CC, resultFisher, firstSigNodes = 10, fn.prefix = "CC_tGO", useInfo = "def", pdfSW = TRUE)
+
