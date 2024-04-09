@@ -1,0 +1,26 @@
+### This R script is to plot the numbers of genes in the identified candidate genes.
+
+R
+
+library(pheatmap)
+
+da_0<-read.table("tmin_sel.PG.txt", header=T,row.names=1)
+
+da<-da_0[,c(1:26)]
+
+pdf("PG_num_plot.pdf")
+
+pheatmap(da, display_numbers = da, cluster_rows=FALSE, cluster_cols=FALSE, fontsize=12, gaps_col = c(4), gaps_row = c(6,12,17))
+
+dev.off()
+
+
+### Align the sugar maple candidate genes to its reference genome using GMAP. 
+### "acsa_genome_v2_masked_rm_contam.fasta" was downloaded from https://treegenesdb.org/FTP/Genomes/Aesc/v2.0/
+### Then select only the "gene" annotation lines, sort and merge the gene coordinates.
+
+~/gmap_build -D <dir for the database> -d <name of the database> acsa_genome_v2_masked_rm_contam.fasta 
+
+~/gmap  --nthreads=8  --format=2  --nofails  -D <dir for the database> -d <name of the database>   <candidate genes.fa> > ${candidate genes}.gff
+
+~/bedtools merge -i <candidate genes coordinates.bed> -c 4 -o collapse > <candidate genes coordinates.merge. bed>
