@@ -34,29 +34,35 @@ dev.off()
 da<-read.table("gene_cord.merge.bed",sep="\t",header=F)
 
 ### These are the scaffold ID that contains the aligned candidate genes
-chr_ID<-c("acsa2_004","acsa2_003","acsa2_002","acsa2_013","acsa2_015",
-          "acsa2_010","acsa2_001","acsa2_016","acsa2_012","acsa2_017",
-          "acsa2_009","acsa2_014","acsa2_011")
+da<-read.table("gene_cord.merge.bed",sep="\t",header=F)
+
+chr_ID<-c("acsa_004","acsa_003","acsa_002","acsa_001",
+          "acsa_384","acsa_388","acsa_386","acsa_387",
+          "acsa_381","acsa_383","acsa_382","acsa_385",
+          "acsa_380")
 
 ### These are the total length of the longest 13 scaffolds in the sugar maple reference genome.
-len<-c(69724770/1000000,66177089/1000000,51675050/1000000,43968981/1000000,
-       42981021/1000000,41043449/1000000,39467503/1000000,37165700/1000000,
-       34836115/1000000,34780538/1000000,34051827/1000000,29825489/1000000,
-       27175859/1000000)
+len<-c(68459104/1000000,65226167/1000000,55331383/1000000,50470275/1000000,
+       46969240/1000000,45724731/1000000,43483981/1000000,42652568/1000000,
+       41337728/1000000,40376603/1000000,37324271/1000000,36639500/1000000,
+       33992772/1000000)
 
-da_1<-subset(da,V1=="acsa2_004")
-#da_2<-subset(da,V1=="acsa2_003")
-da_3<-subset(da,V1=="acsa2_002")
-da_4<-subset(da,V1=="acsa2_013")
-da_5<-subset(da,V1=="acsa2_015")
-da_6<-subset(da,V1=="acsa2_010")
-da_7<-subset(da,V1=="acsa2_001")
-#da_8<-subset(da,V1=="acsa2_016")
-da_9<-subset(da,V1=="acsa2_012")
-da_10<-subset(da,V1=="acsa2_017")
-da_11<-subset(da,V1=="acsa2_009")
-da_12<-subset(da,V1=="acsa2_014")
-da_13<-subset(da,V1=="acsa2_011")
+#da_1<-subset(da,V1=="acsa_004")
+da_2<-subset(da,V1=="acsa_003")
+da_3<-subset(da,V1=="acsa_002")
+da_4<-subset(da,V1=="acsa_001")
+da_5<-subset(da,V1=="acsa_384")
+da_6<-subset(da,V1=="acsa_388")
+da_7<-subset(da,V1=="acsa_386")
+#da_8<-subset(da,V1=="acsa_387")
+da_9<-subset(da,V1=="acsa_381")
+da_10<-subset(da,V1=="acsa_383")
+da_11<-subset(da,V1=="acsa_382")
+da_12<-subset(da,V1=="acsa_385")
+da_13<-subset(da,V1=="acsa_380")
+
+
+
 
 
 pdf("candi_loci_bar.pdf")
@@ -64,20 +70,32 @@ pdf("candi_loci_bar.pdf")
 par(mar=c(5,6,1,2))
 
 barplot(len, names.arg=chr_ID, las=1, horiz=TRUE,xlim=c(0,70),
-        xlab="Length (Mbp)",cex.lab=1.5,space=2.3)
+        xlab="Length (Mbp)",cex.lab=1.5,space=2.3, col="white")
 
-points(da_1$V2/1000000,rep(2.5, length(da_1$V2/1000000)), col="red",pch=c("|"),cex=1.8)
-#points(da_2$V2/1000000,rep(3.2,length(da_2$V2/1000000)), col="red",pch=c("|"),cex=1.8)
-points(da_3$V2/1000000,rep(9.2,length(da_3$V2/1000000)), col="red",pch=c("|"),cex=1.8)
-points(da_4$V2/1000000,rep(12.5,length(da_4$V2/1000000)), col="red",pch=c("|"),cex=1.8)
-points(da_5$V2/1000000,rep(15.7,length(da_5$V2/1000000)), col="red",pch=c("|"),cex=1.8)
-points(da_6$V2/1000000,rep(19,length(da_6$V2/1000000)), col="red",pch=c("|"),cex=1.8)
-points(da_7$V2/1000000,rep(22.3,length(da_7$V2/1000000)), col="red",pch=c("|"),cex=1.8)
-#points(da_8$V2/1000000,rep(10,length(da_8$V2/1000000)), col="red",pch=c("|"),cex=1.8)
-points(da_9$V2/1000000,rep(28.9,length(da_9$V2/1000000)), col="red",pch=c("|"),cex=1.8)
-points(da_10$V2/1000000,rep(32.3,length(da_10$V2/1000000)), col="red",pch=c("|"),cex=1.8)
-points(da_11$V2/1000000,rep(35.5,length(da_11$V2/1000000)), col="red",pch=c("|"),cex=1.8)
-points(da_12$V2/1000000,rep(38.8,length(da_12$V2/1000000)), col="red",pch=c("|"),cex=1.8)
-points(da_13$V2/1000000,rep(42.2,length(da_12$V2/1000000)), col="red",pch=c("|"),cex=1.8)
+#points(da_1$V2/1000000,rep(2.5, length(da_1$V2/1000000)), col="red",pch=c("|"),cex=1.8)
+points(da_2$V2/1000000,rep(6,length(da_2$V2/1000000)), col="plum4",pch=c("|"),cex=2.5)
+points(da_3$V2/1000000,rep(9.5,length(da_3$V2/1000000)), col=c("plum4","bisque3","bisque3","brown3","brown3","brown3","plum4"),pch=c("|"),cex=2.5)
+points(da_4$V2/1000000,rep(12.8,length(da_4$V2/1000000)), col="bisque3",pch=c("|"),cex=2.5)
+points(da_5$V2/1000000,rep(16,length(da_5$V2/1000000)), col=c("green4","bisque3","green4","plum4","brown3"),pch=c("|"),cex=2.5)
+points(da_6$V2/1000000,rep(19,length(da_6$V2/1000000)), col=c("green4","brown3"),pch=c("|"),cex=2.5)
+points(da_7$V2/1000000,rep(22.5,length(da_7$V2/1000000)), col=c("bisque3","bisque3"),pch=c("|"),cex=2.5)
+#points(da_8$V2/1000000,rep(25.3,length(da_8$V2/1000000)), col="red",pch=c("|"),cex=1)
+points(da_9$V2/1000000,rep(29.2,length(da_9$V2/1000000)), col=c("plum4","brown3","green4"),pch=c("|"),cex=2.5)
+points(da_10$V2/1000000,rep(32.5,length(da_10$V2/1000000)), col=c("green4","plum4","plum4"),pch=c("|"),cex=2.5)
+points(da_11$V2/1000000,rep(35.7,length(da_11$V2/1000000)), col="plum4",pch=c("|"),cex=2.5)
+points(da_12$V2/1000000,rep(39,length(da_12$V2/1000000)), col="green4",pch=c("|"),cex=2.5)
+points(da_13$V2/1000000,rep(42.3,length(da_13$V2/1000000)), col="brown3",pch=c("|"),cex=2.5)
+
+dev.off()
+
+
+
+pdf("legend.pdf")
+
+plot(1)
+
+legend(x = "topleft",cex=1.8,legend=c("Intensified selection", "Relaxed selection",
+                  "Positive & intensified selection","Positive selection"),  
+       fill = c("brown3","green4","plum4","bisque")) 
 
 dev.off()
