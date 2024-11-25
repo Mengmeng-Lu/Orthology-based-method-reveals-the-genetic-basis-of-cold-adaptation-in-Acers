@@ -468,3 +468,127 @@ for (i in 1:length(files)) {
   dev.off()
   
 }
+
+
+#############################################################################
+###############  Models of trait evolution  ###############
+#############################################################################
+
+library(phytools)
+library(stringr)
+library(geiger)
+library(dplyr)  
+
+### Univariate models were fitted using the geiger R package.
+### Only use concatenated peptide reroot tree.
+
+### Drop three species from the tree
+tre<- ape::read.tree("4_ML_concat_AA_reroot.tre")
+
+drop.list<-c("Dipteronia_sinensis", "A.spicatum","A.ginnala","A.flabellatu")
+prune.tre<-drop.tip(tre,drop.list)
+plot(prune.tre)
+
+### Convert the tree to ultrametric ,"It just computes the total amount of edge length that would have to be added to all the tips of tree to render the tree ultrametric" 
+
+ult.extend<-force.ultrametric(prune.tre,method="extend")
+plot(ult.extend)
+
+### tip.label only keeps the first ten letters of each species
+key <- ult.extend$tip.label
+key
+
+### Import bios
+da<-read.table("median_occr_clim.txt",header=T)
+dim(da)
+head(da)
+
+
+### Make a lab column to match the tip.label(key)
+lab.interim<-gsub("Acer_", "", rownames(da))
+lab<-substr(lab.interim, 1, 10)
+lab
+
+da$lab<-paste("A.",lab,sep="")
+da
+
+key
+da$lab
+
+### Filter the table to only keep the rows with "key" 
+da_trim <- da[da$lab %in% key,]
+dim(da_trim)
+da_trim
+head(da_trim)
+
+unique(da_trim$lab)
+
+
+### Make a climate variable list for bio1~bio19, tmin01~tmin12
+my_bio<-colnames(da_trim)[c(1:19,81:92)]
+my_bio
+length(my_bio)
+
+
+##########################################################################
+### Run "fitContinuous" for "Model fitting for continuous comparative data"
+##########################################################################
+
+sub_da<-list()
+
+df<-data.frame()
+
+
+for (i in 1:length(my_bio)) {
+  
+  sub_da[[i]] <- da_trim[,my_bio[i]]
+  
+  median <-setNames(sub_da[[i]],da_trim$lab)
+  
+  interim.tbl<-matrix(NA, 4, 4)
+  
+  interim.tbl[,1]<-rep(my_bio[i],4)
+  
+  interim.tbl[,2]<-c("BM","OU","EB","WH")
+  
+  fit_bm<-fitContinuous(ult.extend,median,model="BM")
+  interim.tbl[1,3]<-fit_bm$opt$lnL
+  interim.tbl[1,4]<-fit_bm$opt$aicc
+  
+  fit_ou<-fitContinuous(ult.extend,median,model="OU")
+  interim.tbl[2,3]<-fit_ou$opt$lnL
+  interim.tbl[2,4]<-fit_ou$opt$aicc
+  
+  fit_eb<-fitContinuous(ult.extend,median,model="EB")
+  interim.tbl[3,3]<-fit_eb$opt$lnL
+  interim.tbl[3,4]<-fit_eb$opt$aicc
+  
+  fit_white<-fitContinuous(ult.extend,median,model="white")
+  interim.tbl[4,3]<-fit_white$opt$lnL
+  interim.tbl[4,4]<-fit_white$opt$aicc
+  
+  colnames(interim.tbl)<-c("Clim_var","Model","Log-likelihood","AICc")
+  test_out.df<-as.data.frame(interim.tbl)
+  test_out.df$key<-test_out.df$Model
+  
+  
+  aic_all<-as.numeric(test_out.df$AICc)
+  names(aic_all)<-test_out.df$Model
+  
+  weight_out.df<-aicw(aic_all)
+  weight_out.df$key<-rownames(weight_out.df)
+
+  
+  merge.interim.df <- merge(test_out.df, weight_out.df, by = "key",  all.y = TRUE) 
+  
+  merge.df<-arrange(as.data.frame(merge.interim.df), as.numeric(delta))
+  
+  df<-rbind(df,merge.df)
+}
+
+
+df
+
+write.table(df, file=paste("./model_evol_out/","model_evol_concat_ML.txt",sep=""),
+            quote=FALSE, row.names=FALSE, sep="\t")
+
