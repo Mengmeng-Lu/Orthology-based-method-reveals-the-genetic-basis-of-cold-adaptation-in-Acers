@@ -1,0 +1,242 @@
+#######################################################
+# Make input matrix using HYPHY_test.output.txt per species
+#######################################################
+
+print(files<-list.files(pattern="*.txt"))
+
+index<-read.table("spec_ID_A.list", header=F)
+
+df<-list()
+
+
+
+for (k in 1:length(files)) {
+  
+  df[[k]]<-read.table(files[k],header=T,row.names=1)
+  
+  mat <- matrix(NA,26,26)
+  rownames(mat)<-index$V1
+  colnames(mat)<-index$V1
+  
+  for (i in 1:26) {
+    for (j in 1:26) {
+      
+      ID_1<-rownames(mat)[i] 
+      ID_2<-colnames(mat)[j]
+      
+      dat <- data.frame(df[[k]][,ID_1],df[[k]][,ID_2])
+      
+      notNA_count<-rowSums(!is.na(dat))
+      
+      mat[i,j]<-sum(notNA_count==2)
+    }
+  }
+  
+  write.table(mat, file=paste(files[k],".mat",sep=""), quote=FALSE,
+              row.names=TRUE, sep="\t")
+}
+
+
+#################################################
+# Plot network using the output from the last step
+#################################################
+
+library(igraph)
+library(stringr)
+library(RColorBrewer)
+
+### Read squared table
+
+print(files<-list.files(pattern="*.txt.mat"))
+
+df<-read.table(files[9],header=T,row.names=1)
+dim(df)
+head(df)
+
+### igraph requires input to be matrix
+
+mat<-as.matrix(df)
+dim(mat)
+
+
+### Build network
+
+g1<-graph_from_adjacency_matrix(mat,mode="undirected",diag=FALSE,weighted=TRUE)
+
+#############################
+# modify 1/4--Short name  ###
+#############################
+
+V(g1)$name
+
+nameshort=V(g1)$name%>%
+  str_split(.,"A.",simplify = TRUE)%>%.[,2]
+
+nameshort
+
+V(g1)$name=nameshort
+
+plot(g1)
+
+###############################################################
+# modify 2/4-- Get family name and assign colors to family names
+###############################################################
+
+V(g1)$familyname=c("Palmata","Palmata","Palmata","Palmata","Palmata",
+                   "Palmata","Lithocarpa","Palmata","Palmata","Arguta",
+                   "Arguta", "Negundo", "Macrantha", "Spicata","Macratha",
+                   "Platanoidea","Platanoidea","Platanoidea","Rubra",
+                   "Pentaphylla","Pentaphylla","Pentaphylla","Trifoliata",
+                   "Trifoliata", "Acer","Acer")
+
+vcol=V(g1)$familyname
+
+my_col <- brewer.pal(12, "Paired") 
+
+vcol[vcol=="Platanoidea"]=my_col[1]
+vcol[vcol=="Arguta"]=my_col[2]
+vcol[vcol=="Pentaphylla"]=my_col[3]
+vcol[vcol=="Acer"]=my_col[4]
+vcol[vcol=="Spicata"]=my_col[5]
+vcol[vcol=="Palmata"]=my_col[6]
+vcol[vcol=="Lithocarpa"]=my_col[7]
+vcol[vcol=="Negundo"]=my_col[8]
+vcol[vcol=="Trifoliata"]=my_col[9]
+vcol[vcol=="Macrantha"]=my_col[10]
+vcol[vcol=="Rubra"]=my_col[11]
+vcol[vcol=="Macratha"]=my_col[12]
+
+V(g1)$color=vcol
+
+plot(g1)
+
+#################################
+# modify 3/4--  Assign edge width
+#################################
+
+E(g1)$weight
+E(g1)$width <- E(g1)$weight*0.6
+
+plot(g1)
+
+#########################################
+# modify 4/4-- Assign degrees to node size
+#########################################
+
+deg <- degree(g1, mode="out")
+deg
+
+Isolated = which(degree(g1)==0)
+g1 = delete_vertices(g1, Isolated)
+
+deg <- degree(g1, mode="out")
+deg
+
+V(g1)$size=igraph::degree(g1)%>%log()*6
+
+plot(g1)
+
+
+######################
+#  Assign layout and plot
+######################
+
+
+plot(g1,layout=layout_in_circle, vertex.label.color="black", 
+     vertex.label.cex=0.8, vertex.label.dist=1.3)
+
+
+legend("left", legend = c("Platanoidea","Arguta","Pentaphylla","Acer",
+          "Spicata", "Palmata", "Lithocarpa","Negundo","Trifoliata","Macrantha", 
+          "Rubra",  "Macratha"), pch=21, col=my_col[1:12], pt.bg=my_col[1:12], 
+       pt.cex=1, cex=0.9, bty="n", ncol=1)
+
+
+###########################################
+# Plot heatmap for the GO terms shared by different species
+###########################################
+
+library(pheatmap)
+library(GO.db)
+
+### Read enriched GOs for relax genes
+
+all<-read.table("relax_BP.txt",header=T,row.names=1,sep="\t")
+dim(all)
+head(all)
+
+da<-rownames(all)
+
+annot<-Term(as.character(da))
+
+all$annot<-paste(rownames(all)," ",annot,sep="")
+
+write.table(all, file="relax_BP_anno.txt", quote=FALSE, row.names=TRUE, sep="\t")
+
+
+
+### Select the wider edges (>5)
+
+mat.df<-read.table("relax_BP.txt.mat",header=T,row.names=1)
+head(mat)
+
+mat<-as.matrix(mat.df)
+
+flattenCorrMatrix <- function(cormat) {
+  ut <- upper.tri(cormat)
+  data.frame(
+    row = rownames(cormat)[row(cormat)[ut]],
+    column = rownames(cormat)[col(cormat)[ut]],
+    cor  =(cormat)[ut]
+  )
+}
+
+mat.flat <-flattenCorrMatrix(mat)
+
+mat.flat.sel<-subset(mat.flat,cor>=5)
+
+dim(mat.flat)
+dim(mat.flat.sel)
+
+mat.flat.sel
+
+
+### Define breaks
+
+my_col = colorRampPalette(c("gold", "dark orange"))(20)
+
+breaks = c(0.0025,0.005,0.0075,0.01,
+           0.0125,0.015,0.0175,0.02,
+           0.0225,0.025,0.0275,0.03,
+           0.0325,0.035,0.0375,0.04,
+           0.0425,0.045,0.0475,0.05)
+
+
+### Plot the heatmaps for pairs heatmap
+
+p.df<-list()
+p.sel.df<-list()
+
+
+for (i in 1:nrow(mat.flat.sel)){
+  
+  p.df[[i]]<-all[,c(mat.flat.sel[i,1],mat.flat.sel[i,2],"annot")]
+  
+  p.df[[i]]$notNA_count<- rowSums(!is.na(p.df[[i]]))
+  
+  p.sel.df[[i]]<-subset(p.df[[i]], notNA_count >2)
+  
+  pdf(paste("relax_BP_",i,".pdf",sep=""))
+  
+  pheatmap(as.matrix(p.sel.df[[i]][,c(1:2)]), 
+          cluster_rows=FALSE, cluster_cols=FALSE,
+          na_col = "grey30",labels_row=p.sel.df[[i]]$annot,legend=FALSE,
+          color = my_col,breaks=breaks,fontsize_row=12,fontsize_col=12,
+           cellwidth=12, cellheight=12)
+  dev.off()
+}
+
+
+
+
+
